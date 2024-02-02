@@ -1,0 +1,5 @@
+from flowers.txt
+from insects.txt
+from honey.txt
+from bees.txt
+from story.txt
