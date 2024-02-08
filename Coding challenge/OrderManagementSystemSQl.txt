@@ -1,0 +1,51 @@
+create database test4;
+use test4;
+Create table Products (productId int primary key,
+productName varchar(255),
+description varchar(255),price double,
+quantityInStock int,type varchar(255));
+
+create table Electronics (
+    productId INT ,FOREIGN KEY (productId) REFERENCES Products(productId),
+    brand VARCHAR(255),
+    warrantyPeriod INT
+    );
+
+create table Clothing (
+    productId INT PRIMARY KEY, FOREIGN KEY (productId) REFERENCES Products(productId),
+    size VARCHAR(20),
+    color VARCHAR(20)   
+);
+
+create table User (
+    userId INT PRIMARY KEY,
+    username VARCHAR(255),
+    password VARCHAR(255),
+    role VARCHAR(20) 
+); 
+
+create table Orders (order_id int primary key,userId int,FOREIGN KEY (userId) REFERENCES User(userId),
+productId int,FOREIGN KEY (productId) REFERENCES Products(productId),
+ order_date DATE);
+ 
+ insert into orders values(1,22,5,'2024-01-13'),(2,44,1,'2024-01-13');
+    
+insert into products  values(1,'television','34inch good quality',450000.0,255,'electronics'),
+						     (2,'Mouse','black with white',2500.0,25,'electronics'),
+                             (3,'Monitor','20inch with HD display',3000.0,255,'electronics'),
+                             (4,'Alia Cut tops','Full cotton',300.0,63,'clothing'),
+                             (5,'Denim pants','pure denim with blue colour',1000.0,28,'clothing'),
+							(6,'tshirts','Full cotton',450.0,100,'clothing');
+                            
+insert into Electronics values(1,'SonyLED',2),(2,'Zebronics',1),(3,'Acer',2);
+insert into Electronics values(7,'Laptops',3);
+
+insert into Clothing values(4,'XL','pink'),(5,'XXL','blue'),(6,'XS','black');
+
+insert into User Values(11,'akshya','ak123','Admin'),(22,'Rohit','rohi34','User'),(33,'dev','dd333','Admin'),(44,'vina','vinn334','User');
+
+select * from products;
+select * from Electronics;
+select * from Clothing;
+select * from User;
+select * from orders;
