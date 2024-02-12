@@ -38,4 +38,8 @@ public static Connection getConnection() {
 		
 		return con;
 	}
+public static void main(String args[])
+{
+	System.out.println(con);
+}
 }

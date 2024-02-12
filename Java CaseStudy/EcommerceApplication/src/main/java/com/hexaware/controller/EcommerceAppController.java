@@ -2,6 +2,7 @@ package com.hexaware.controller;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
@@ -189,7 +190,7 @@ public class EcommerceAppController {
         String productDescription = sc.nextLine();
         System.out.print("Enter stock quantity: ");
         int stockQuantity = sc.nextInt();
-        Product product = new Product(productId, productName, productPrice, productDescription, stockQuantity);
+        Product product = new Product(productId, productName, productPrice, productDescription, stockQuantity, stockQuantity);
 
         try {
             boolean productAdded = orderService.createProduct(product);
@@ -260,7 +261,12 @@ public class EcommerceAppController {
             List<Product> cartProducts = orderService.viewCart(customerToViewCart);
             System.out.println("Products in the cart:");
             for (Product cartProduct : cartProducts) {
-                System.out.println(cartProduct);
+                System.out.println("Product ID: " + cartProduct.getProductId());
+                System.out.println("Product Name: " + cartProduct.getName());
+                System.out.println("Product Price: " + cartProduct.getPrice());
+                System.out.println("Product Description: " + cartProduct.getDescription());
+                System.out.println("Quantity in Cart: " + cartProduct.getQuantityInCart()); // Assuming you have a method to get the quantity
+                System.out.println("--------------------------------------------");
             }
         } catch (CustomerNotFoundException e) {
             System.out.println("Error: " + e.getMessage());
@@ -268,6 +274,7 @@ public class EcommerceAppController {
             System.exit(1);
         }
     }
+
 
     private static void addToCart(OrderProcessorRepositoryImpl orderService, Scanner sc) {
         System.out.print("Enter Cart ID: ");
@@ -380,7 +387,6 @@ public class EcommerceAppController {
         List<Map<Product, Integer>> productsAndQuantities = new ArrayList<>();
 
         boolean addingMoreProducts = true;
-        int orderId = 0; // Initialize orderId as 0
         while (addingMoreProducts) {
             System.out.println("Enter product ID: ");
             int productId = sc.nextInt();
@@ -409,23 +415,22 @@ public class EcommerceAppController {
         sc.nextLine(); 
         System.out.println("Enter shipping address: ");
         String shippingAddress = sc.nextLine();
-        if (productsAndQuantities.size() > 0) {
-            System.out.println("Do you have an existing order ID to add products? (0 if no)");
-            orderId = sc.nextInt();
-        }
 
-        try {
-            boolean orderPlaced = orderService.placeOrder(customerId, orderId, productsAndQuantities, shippingAddress);
-            if (orderPlaced) {
-                System.out.println("Order placed successfully!");
-            } else {
-                System.out.println("Failed to place order. Please try again.");
+        if (productsAndQuantities.size() > 0) {
+            try {
+                boolean orderPlaced = orderService.placeOrder(customerId, productsAndQuantities, shippingAddress);
+                if (orderPlaced) {
+                    System.out.println("Order placed successfully!");
+                } else {
+                    System.out.println("Failed to place order. Please try again.");
+                }
+            } catch (CustomerNotFoundException | ProductNotFoundException e) {
+                System.out.println("Error: " + e.getMessage()); 
             }
-        } catch (CustomerNotFoundException | ProductNotFoundException e) {
-            e.printStackTrace(); 
         }
     }
 
+        
     private static void viewCustomerOrder(OrderProcessorRepositoryImpl orderService, Scanner sc) {
         System.out.print("Enter Customer ID: ");
         int customerIdToViewOrder = sc.nextInt();

@@ -133,13 +133,14 @@ public interface OrderProcessorRepository {
 	 * @param customerId           The ID of the customer placing the order.
 	 * @param productsAndQuantities A list containing maps of products and their corresponding quantities.
 	 * @param shippingAddress      The shipping address for the order.
+	 * @return 
 	 * @return true if the order is successfully placed, false otherwise.
 	 * @throws CustomerNotFoundException If the customer with the given ID is not found.
 	 * @throws ProductNotFoundException  If a product in the order is not found.
 	 */
-	boolean placeOrder(int customerId, int orderId, List<Map<Product, Integer>> productsAndQuantities,
-			String shippingAddress) throws CustomerNotFoundException, ProductNotFoundException;
-  /**
+ boolean placeOrder(int customerId, List<Map<Product, Integer>> productsAndQuantities, String shippingAddress)
+            throws CustomerNotFoundException, ProductNotFoundException;
+    /**
      * Retrieves all orders for a specific customer.
      * 
      * @param customerId The ID of the customer.

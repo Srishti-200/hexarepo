@@ -29,7 +29,7 @@ public class OrderProcessorRepositoryImplTest {
      */
     @Test
     public void testCreateProduct_Success() throws ProductIdAlreadyExistsException {
-        Product product = new Product(1191, "Test Product", 10.0, "Test Description", 100);
+        Product product = new Product(1191, "Test Product", 10.0, "Test Description", 100, 0);
         OrderProcessorRepositoryImpl repository = new OrderProcessorRepositoryImpl();
 
         boolean result = repository.createProduct(product);
@@ -45,7 +45,7 @@ public class OrderProcessorRepositoryImplTest {
     @Test
     public void testAddToCart_Success() throws CustomerNotFoundException {
         Customer customer = new Customer(1031, "Test Customer", "test@example.com", "password");
-        Product product = new Product(103, "Test Product", 10.0, "Test Description", 100);
+        Product product = new Product(103, "Test Product", 10.0, "Test Description", 100, 0);
         OrderProcessorRepositoryImpl repository = new OrderProcessorRepositoryImpl();
 
         boolean result = repository.addToCart(1, customer.getCustomerId(), product.getProductId(), 1);
@@ -59,8 +59,8 @@ public class OrderProcessorRepositoryImplTest {
     @Test
     public void testPlaceOrder_Success() {
         Customer customer = new Customer(100, "Test Customer", "test@example.com", "password");
-        Product product1 = new Product(111, "Fan", 2500.0, "High-speed fan", 25);
-        Product product2 = new Product(112, "Lamp", 500.0, "Desk lamp", 50);
+        Product product1 = new Product(111, "Fan", 2500.0, "High-speed fan", 25, 0);
+        Product product2 = new Product(112, "Lamp", 500.0, "Desk lamp", 50, 0);
         List<Map<Product, Integer>> productsAndQuantities = new ArrayList<>();
         Map<Product, Integer> product1Map = new HashMap<>();
         Map<Product, Integer> product2Map = new HashMap<>();
@@ -74,7 +74,7 @@ public class OrderProcessorRepositoryImplTest {
         boolean result = false;
         try {
             // Since it's a new order, orderId is set to 0
-            result = repository.placeOrder(customer.getCustomerId(), 0, productsAndQuantities, shippingAddress);
+            result = repository.placeOrder(customer.getCustomerId(), productsAndQuantities, shippingAddress);
         } catch (CustomerNotFoundException | ProductNotFoundException e) {
             fail("Exception should not be thrown: " + e.getMessage());
         }

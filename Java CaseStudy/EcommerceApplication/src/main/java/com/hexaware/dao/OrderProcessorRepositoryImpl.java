@@ -6,9 +6,11 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 
 import com.hexaware.entity.Customer;
 import com.hexaware.entity.Product;
@@ -139,7 +141,7 @@ public class OrderProcessorRepositoryImpl implements OrderProcessorRepository {
                     String productDescription = resultSet.getString("prod_desp");
                     int stockQuantity = resultSet.getInt("stock_quantity");
 
-                    Product product = new Product(productId, productName, productPrice, productDescription, stockQuantity);
+                    Product product = new Product(productId, productName, productPrice, productDescription, stockQuantity, stockQuantity);
                     Map<Product, Integer> orderDetails = new HashMap<>();
                     orderDetails.put(product, quantity);
 
@@ -152,76 +154,157 @@ public class OrderProcessorRepositoryImpl implements OrderProcessorRepository {
         return customerOrders;
     }
     /**
-     * Places an order for a customer with the specified products and quantities to the provided shipping address.
-     *
+     * Places an order for a customer.
+     * 
      * @param customerId           The ID of the customer placing the order.
+     * @param orderId              The ID of the order. If 0, it's a new order; otherwise, it's an existing order.
      * @param productsAndQuantities A list containing maps of products and their corresponding quantities.
      * @param shippingAddress      The shipping address for the order.
-     * @return true if the order is successfully placed, false otherwise.
+     * @return true if the order was successfully placed, otherwise false.
      * @throws CustomerNotFoundException If the customer with the given ID is not found.
      * @throws ProductNotFoundException  If a product in the order is not found.
-     */
-    @Override
-    public boolean placeOrder(int customerId, int orderId, List<Map<Product, Integer>> productsAndQuantities, String shippingAddress)
+     * */
+    public boolean placeOrder(int customerId, List<Map<Product, Integer>> productsAndQuantities, String shippingAddress)
             throws CustomerNotFoundException, ProductNotFoundException {
+        // Check if customer exists
         if (!customerExists(customerId)) {
             throw new CustomerNotFoundException("Customer with ID " + customerId + " not found.");
         }
 
         try (Connection connection = DBConnUtil.getConnection()) {
-            if (orderId == 0) { // If orderId is 0, it means it's a new order
-                try (PreparedStatement orderStatement = connection.prepareStatement(
-                        "INSERT INTO orders (customer_id, order_date, total_price, shipping_address) VALUES (?, CURRENT_DATE, ?, ?)",
-                        PreparedStatement.RETURN_GENERATED_KEYS)) {
-                    orderStatement.setInt(1, customerId);
-                    int totalPrice = calculateTotalPrice(productsAndQuantities);
-                    orderStatement.setInt(2, totalPrice);
-                    orderStatement.setString(3, shippingAddress);
+            // Insert order into orders table
+            try (PreparedStatement orderStatement = connection.prepareStatement(
+                    "INSERT INTO orders (customer_id, order_date, total_price, shipping_address) VALUES (?, CURRENT_DATE, ?, ?)",
+                    PreparedStatement.RETURN_GENERATED_KEYS)) {
+                orderStatement.setInt(1, customerId);
+                int totalPrice = calculateTotalPrice(productsAndQuantities);
+                orderStatement.setInt(2, totalPrice);
+                orderStatement.setString(3, shippingAddress);
 
-                    int rowsAffected = orderStatement.executeUpdate();
+                int rowsAffected = orderStatement.executeUpdate();
+                if (rowsAffected > 0) {
+                    // Retrieve generated order ID
+                    try (ResultSet generatedKeys = orderStatement.getGeneratedKeys()) {
+                        if (generatedKeys.next()) {
+                            int orderId = generatedKeys.getInt(1);
+                            // Insert or update order items into orderitems table
+                            for (Map<Product, Integer> item : productsAndQuantities) {
+                                for (Map.Entry<Product, Integer> entry : item.entrySet()) {
+                                    Product product = entry.getKey();
+                                    int quantity = entry.getValue();
 
-                    if (rowsAffected > 0) {
-                        try (ResultSet generatedKeys = orderStatement.getGeneratedKeys()) {
-                            if (generatedKeys.next()) {
-                                orderId = generatedKeys.getInt(1);
+                                    // Check if the order item already exists for the given order and product
+                                    boolean orderItemExists = false;
+                                    try (PreparedStatement checkExistingStatement = connection.prepareStatement(
+                                            "SELECT * FROM orderitems WHERE order_id = ? AND product_id = ?")) {
+                                        checkExistingStatement.setInt(1, orderId);
+                                        checkExistingStatement.setInt(2, product.getProductId());
+                                        try (ResultSet existingResultSet = checkExistingStatement.executeQuery()) {
+                                            orderItemExists = existingResultSet.next();
+                                        }
+                                    }
+
+                                    if (orderItemExists) {
+                                        // Update the quantity if the order item already exists
+                                        try (PreparedStatement updateStatement = connection.prepareStatement(
+                                                "UPDATE orderitems SET quantity = quantity + ? WHERE order_id = ? AND product_id = ?")) {
+                                            updateStatement.setInt(1, quantity);
+                                            updateStatement.setInt(2, orderId);
+                                            updateStatement.setInt(3, product.getProductId());
+                                            updateStatement.executeUpdate();
+                                        }
+                                    } else {
+                                        // Insert the order item if it doesn't already exist
+                                        try (PreparedStatement orderItemsStatement = connection.prepareStatement(
+                                                "INSERT INTO orderitems (order_id, product_id, quantity) VALUES (?, ?, ?)")) {
+                                            orderItemsStatement.setInt(1, orderId);
+                                            orderItemsStatement.setInt(2, product.getProductId());
+                                            orderItemsStatement.setInt(3, quantity);
+                                            orderItemsStatement.executeUpdate();
+                                        }
+                                    }
+                                }
                             }
+                            return true; // Order placed successfully
                         }
                     }
-                }
-            }
-
-            if (orderId != 0) { // If orderId is not 0, it means it's an existing order or a newly created one
-                try (PreparedStatement orderItemsStatement = connection.prepareStatement(
-                        "INSERT INTO orderItems (order_id, product_id, quantity) VALUES (?, ?, ?)")) {
-                    for (Map<Product, Integer> productAndQuantity : productsAndQuantities) {
-                        for (Map.Entry<Product, Integer> entry : productAndQuantity.entrySet()) {
-                            Product product = entry.getKey();
-                            int quantity = entry.getValue();
-
-                            orderItemsStatement.setInt(1, orderId);
-                            orderItemsStatement.setInt(2, product.getProductId());
-                            orderItemsStatement.setInt(3, quantity);
-                            orderItemsStatement.addBatch(); // Add batch for efficient execution
-                        }
-                    }
-                    orderItemsStatement.executeBatch(); // Execute the batch
-                    return true;
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            e.printStackTrace(); // Log SQL exception
         }
-
-        return false;
+        return false; // Failed to place order
     }
 
 
-    /**
-     * Calculates the total price of the products in the order based on their quantities.
-     *
-     * @param productsAndQuantities A list containing maps of products and their corresponding quantities.
-     * @return The total price of the products in the order.
-     */
+    private void updateCartAfterOrder(Connection connection, int customerId, List<Map<Product, Integer>> productsAndQuantities) throws SQLException {
+        for (Map<Product, Integer> productAndQuantity : productsAndQuantities) {
+            for (Map.Entry<Product, Integer> entry : productAndQuantity.entrySet()) {
+                Product product = entry.getKey();
+                int quantityOrdered = entry.getValue();
+
+                // Check if the product is in the customer's cart
+                if (isProductInCart(connection, customerId, product.getProductId())) {
+                            int cartQuantity = getCartQuantity(connection, customerId, product.getProductId());
+                    if (quantityOrdered == cartQuantity) {
+                        deleteCartItem(connection, customerId, product.getProductId());
+                    } else if (quantityOrdered < cartQuantity) {
+                        updateCartQuantity(connection, customerId, product.getProductId(), cartQuantity - quantityOrdered);
+                    } else {
+                        System.out.println("You are ordering more quantity than what's in your cart for product: " + product.getName());
+                    }
+                } else {
+                    // If the product is not in the cart, print a message
+                    System.out.println("The product: " + product.getName() + " is not in your cart.");
+                }
+            }
+        }
+    }
+
+    private boolean isProductInCart(Connection connection, int customerId, int productId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT * FROM cart WHERE customer_id = ? AND product_id = ?")) {
+            statement.setInt(1, customerId);
+            statement.setInt(2, productId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next();
+            }
+        }
+    }
+
+    private int getCartQuantity(Connection connection, int customerId, int productId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT quantity FROM cart WHERE customer_id = ? AND product_id = ?")) {
+            statement.setInt(1, customerId);
+            statement.setInt(2, productId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    return resultSet.getInt("quantity");
+                }
+            }
+        }
+        return 0;
+    }
+
+    private void deleteCartItem(Connection connection, int customerId, int productId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "DELETE FROM cart WHERE customer_id = ? AND product_id = ?")) {
+            statement.setInt(1, customerId);
+            statement.setInt(2, productId);
+            statement.executeUpdate();
+        }
+    }
+
+    private void updateCartQuantity(Connection connection, int customerId, int productId, int newQuantity) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "UPDATE cart SET quantity = ? WHERE customer_id = ? AND product_id = ?")) {
+            statement.setInt(1, newQuantity);
+            statement.setInt(2, customerId);
+            statement.setInt(3, productId);
+            statement.executeUpdate();
+        }
+    }
+
     private int calculateTotalPrice(List<Map<Product, Integer>> productsAndQuantities) {
         int totalPrice = 0;
         for (Map<Product, Integer> productAndQuantity : productsAndQuantities) {
@@ -234,6 +317,74 @@ public class OrderProcessorRepositoryImpl implements OrderProcessorRepository {
         return totalPrice;
     }
     /**
+     * Updates the order with new quantities.
+     * 
+     * @param connection           The database connection.
+     * @param orderId              The ID of the order to update.
+     * @param productsAndQuantities A list containing maps of products and their corresponding quantities.
+     * @throws SQLException If a database error occurs.
+     */
+    private void updateOrder(Connection connection, int orderId, List<Map<Product, Integer>> productsAndQuantities) throws SQLException {
+        try (PreparedStatement deleteStatement = connection.prepareStatement(
+                "DELETE FROM orderItems WHERE order_id = ?")) {
+            deleteStatement.setInt(1, orderId);
+            deleteStatement.executeUpdate();
+        }
+
+        try (PreparedStatement orderItemsStatement = connection.prepareStatement(
+                "INSERT INTO orderItems (order_id, product_id, quantity) VALUES (?, ?, ?)")) {
+            for (Map<Product, Integer> productAndQuantity : productsAndQuantities) {
+                for (Map.Entry<Product, Integer> entry : productAndQuantity.entrySet()) {
+                    Product product = entry.getKey();
+                    int quantity = entry.getValue();
+
+                    orderItemsStatement.setInt(1, orderId);
+                    orderItemsStatement.setInt(2, product.getProductId());
+                    orderItemsStatement.setInt(3, quantity);
+                    orderItemsStatement.addBatch(); // Add batch for efficient execution
+                }
+            }
+            orderItemsStatement.executeBatch(); // Execute the batch
+        }
+    }
+
+
+// Additional Methods for Order Management
+
+public void cancelOrder(int orderId) throws SQLException {
+    try (Connection connection = DBConnUtil.getConnection();
+         PreparedStatement statement = connection.prepareStatement("DELETE FROM orders WHERE order_id = ?")) {
+        statement.setInt(1, orderId);
+        statement.executeUpdate();
+    }
+}
+
+public void viewOrder(int orderId) throws SQLException {
+    try (Connection connection = DBConnUtil.getConnection();
+         PreparedStatement statement = connection.prepareStatement(
+                 "SELECT * FROM orders WHERE order_id = ?")) {
+        statement.setInt(1, orderId);
+        try (ResultSet resultSet = statement.executeQuery()) {
+            while (resultSet.next()) {
+                // Retrieve and display order details
+                int customerId = resultSet.getInt("customer_id");
+                Date orderDate = resultSet.getDate("order_date");
+                int totalPrice = resultSet.getInt("total_price");
+                String shippingAddress = resultSet.getString("shipping_address");
+
+                System.out.println("Order ID: " + orderId);
+                System.out.println("Customer ID: " + customerId);
+                System.out.println("Order Date: " + orderDate);
+                System.out.println("Total Price: " + totalPrice);
+                System.out.println("Shipping Address: " + shippingAddress);
+
+                // You may need to retrieve and display order items as well
+            }
+        }
+    }
+}
+                    		
+    /**
      * Retrieves the products in the customer's cart.
      *
      * @param customer The customer whose cart is to be viewed.
@@ -245,7 +396,8 @@ public class OrderProcessorRepositoryImpl implements OrderProcessorRepository {
         List<Product> cartProducts = new ArrayList<>();
         try (Connection connection = DBConnUtil.getConnection();
              PreparedStatement statement = connection.prepareStatement(
-                     "SELECT products.* FROM cart " +
+                     "SELECT products.*, cart.quantity AS cart_quantity " +
+                             "FROM cart " +
                              "JOIN products ON cart.product_id = products.product_id " +
                              "WHERE cart.customer_id = ?")) {
             statement.setInt(1, customer.getCustomerId());
@@ -260,8 +412,10 @@ public class OrderProcessorRepositoryImpl implements OrderProcessorRepository {
                     double productPrice = resultSet.getDouble("prod_price");
                     String productDescription = resultSet.getString("prod_desp");
                     int stockQuantity = resultSet.getInt("stock_quantity");
+                    int cartQuantity = resultSet.getInt("cart_quantity");
 
-                    Product product = new Product(productId, productName, productPrice, productDescription, stockQuantity);
+                    // Create a Product object with quantity in cart
+                    Product product = new Product(productId, productName, productPrice, productDescription, stockQuantity, cartQuantity);
                     cartProducts.add(product);
                 }
             }
@@ -270,6 +424,7 @@ public class OrderProcessorRepositoryImpl implements OrderProcessorRepository {
         }
         return cartProducts;
     }
+
 
     /**
      * Checks whether a product with the given ID exists in the database.
@@ -422,7 +577,7 @@ public class OrderProcessorRepositoryImpl implements OrderProcessorRepository {
                     String productDescription = resultSet.getString("prod_desp");
                     int stockQuantity = resultSet.getInt("stock_quantity");
 
-                    Product product = new Product(productId, productName, productPrice, productDescription, stockQuantity);
+                    Product product = new Product(productId, productName, productPrice, productDescription, stockQuantity, stockQuantity);
                     Map<Product, Integer> orderDetails = new HashMap<>();
                     orderDetails.put(product, totalQuantity);
 
@@ -547,7 +702,7 @@ public class OrderProcessorRepositoryImpl implements OrderProcessorRepository {
                     String productDescription = resultSet.getString("prod_desp");
                     int stockQuantity = resultSet.getInt("stock_quantity");
 
-                    Product product = new Product(productId, productName, productPrice, productDescription, stockQuantity);
+                    Product product = new Product(productId, productName, productPrice, productDescription, stockQuantity, stockQuantity);
                     products.add(product);
                 }
             }
@@ -575,7 +730,7 @@ public class OrderProcessorRepositoryImpl implements OrderProcessorRepository {
                     double price = resultSet.getDouble("prod_price");
                     String description = resultSet.getString("prod_desp");
                     int stockQuantity = resultSet.getInt("stock_quantity");
-                    return new Product(productId, name, price, description, stockQuantity);
+                    return new Product(productId, name, price, description, stockQuantity, stockQuantity);
                 } else {
                     throw new ProductNotFoundException("Product with ID " + productId + " not found.");
                 }
@@ -614,6 +769,9 @@ public class OrderProcessorRepositoryImpl implements OrderProcessorRepository {
             return null;
         }
     }
+
+	
+
 }
 
 
