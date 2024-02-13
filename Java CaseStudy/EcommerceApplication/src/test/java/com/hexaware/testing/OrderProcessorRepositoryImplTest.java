@@ -29,7 +29,7 @@ public class OrderProcessorRepositoryImplTest {
      */
     @Test
     public void testCreateProduct_Success() throws ProductIdAlreadyExistsException {
-        Product product = new Product(1191, "Test Product", 10.0, "Test Description", 100, 0);
+        Product product = new Product(1091, "Test Product", 10.0, "Test Description", 100, 0);
         OrderProcessorRepositoryImpl repository = new OrderProcessorRepositoryImpl();
 
         boolean result = repository.createProduct(product);
@@ -44,11 +44,11 @@ public class OrderProcessorRepositoryImplTest {
      */
     @Test
     public void testAddToCart_Success() throws CustomerNotFoundException {
-        Customer customer = new Customer(1031, "Test Customer", "test@example.com", "password");
-        Product product = new Product(103, "Test Product", 10.0, "Test Description", 100, 0);
+        Customer customer = new Customer(1331, "Test Customer", "test@example.com", "password");
+        Product product = new Product(1040, "Test Product", 10.0, "Test Description", 100, 0);
         OrderProcessorRepositoryImpl repository = new OrderProcessorRepositoryImpl();
 
-        boolean result = repository.addToCart(1, customer.getCustomerId(), product.getProductId(), 1);
+        boolean result = repository.addToCart(1, customer.getCustomerId(), product.getProductId(), 0);
 
         assertTrue(result);
     }

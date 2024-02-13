@@ -223,7 +223,7 @@ public class EcommerceAppController {
         } 
     }
 
-    private static void cartManagement(OrderProcessorRepositoryImpl orderService, Scanner sc) {
+    private static void cartManagement(OrderProcessorRepositoryImpl orderService, Scanner sc) throws CustomerNotFoundException {
         int cartChoice;
         do {
             System.out.println("\033[1;33mCart Management\033[0m");
@@ -274,11 +274,7 @@ public class EcommerceAppController {
             System.exit(1);
         }
     }
-
-
     private static void addToCart(OrderProcessorRepositoryImpl orderService, Scanner sc) {
-        System.out.print("Enter Cart ID: ");
-        int cartIdToAddToCart = sc.nextInt();
         System.out.print("Enter Customer ID: ");
         int customerIdToAddToCart = sc.nextInt();
         System.out.print("Enter Product ID to add to cart: ");
@@ -286,7 +282,7 @@ public class EcommerceAppController {
         System.out.print("Enter quantity: ");
         int quantityToAddToCart = sc.nextInt();
         try {
-            orderService.addToCart(cartIdToAddToCart, customerIdToAddToCart, productIdToAddToCart, quantityToAddToCart);
+            orderService.addToCart(customerIdToAddToCart, productIdToAddToCart, quantityToAddToCart, quantityToAddToCart);
             System.out.println("Product added to cart successfully!");
         } catch (CustomerNotFoundException e) {
             System.out.println("Customer not found. Add to Cart failed");
@@ -295,12 +291,15 @@ public class EcommerceAppController {
             System.exit(1);
         }
     }
-
-    private static void removeFromCart(OrderProcessorRepositoryImpl orderService, Scanner sc) {
+    private static void removeFromCart(OrderProcessorRepositoryImpl orderService, Scanner sc) throws CustomerNotFoundException {
         try {
             System.out.print("Enter Customer ID: ");
             int customerIdToRemoveFromCart = sc.nextInt();
-            sc.nextLine(); 
+            sc.nextLine(); // Consume newline character
+
+            // Display products in the cart for the specified customer
+            orderService.displayCart(customerIdToRemoveFromCart);
+
             System.out.print("Enter Product ID to remove from cart: ");
             int productIdToRemoveFromCart = sc.nextInt();
 
@@ -317,8 +316,11 @@ public class EcommerceAppController {
             System.out.println("Product not found: " + e.getMessage());
             System.out.println("Exiting the system because of exception raised");
             System.exit(1);
-        } 
+        }
     }
+
+    
+
 
     private static void orderManagement(OrderProcessorRepositoryImpl orderService, Scanner sc) {
         int orderChoice;

@@ -92,7 +92,9 @@ public interface OrderProcessorRepository {
      * @throws CustomerNotFoundException If the customer is not found.
      */
     boolean addToCart(int cartId, int customerId, int productId, int quantity) throws CustomerNotFoundException;
-    
+
+	
+   
     /**
      * Deletes a product.
      * 
@@ -148,4 +150,5 @@ public interface OrderProcessorRepository {
      * @throws OrderNotFoundException If no orders are found for the customer.
      * @throws CustomerNotFoundException If the customer is not found.
      */
-}
+
+	}

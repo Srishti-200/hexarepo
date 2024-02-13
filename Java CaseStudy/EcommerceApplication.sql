@@ -50,7 +50,7 @@ INSERT INTO orderitems (order_id, product_id, Quantity) VALUES
 (5, 101, 4);
 select * from customers;
 select * from products;
-select * from employee;
 select * from orders;
 select * from orderitems;
 select * from cart;
+ALTER TABLE cart MODIFY cart_id INT AUTO_INCREMENT;

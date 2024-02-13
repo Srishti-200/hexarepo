@@ -349,15 +349,6 @@ public class OrderProcessorRepositoryImpl implements OrderProcessorRepository {
     }
 
 
-// Additional Methods for Order Management
-
-public void cancelOrder(int orderId) throws SQLException {
-    try (Connection connection = DBConnUtil.getConnection();
-         PreparedStatement statement = connection.prepareStatement("DELETE FROM orders WHERE order_id = ?")) {
-        statement.setInt(1, orderId);
-        statement.executeUpdate();
-    }
-}
 
 public void viewOrder(int orderId) throws SQLException {
     try (Connection connection = DBConnUtil.getConnection();
@@ -378,7 +369,6 @@ public void viewOrder(int orderId) throws SQLException {
                 System.out.println("Total Price: " + totalPrice);
                 System.out.println("Shipping Address: " + shippingAddress);
 
-                // You may need to retrieve and display order items as well
             }
         }
     }
@@ -414,7 +404,6 @@ public void viewOrder(int orderId) throws SQLException {
                     int stockQuantity = resultSet.getInt("stock_quantity");
                     int cartQuantity = resultSet.getInt("cart_quantity");
 
-                    // Create a Product object with quantity in cart
                     Product product = new Product(productId, productName, productPrice, productDescription, stockQuantity, cartQuantity);
                     cartProducts.add(product);
                 }
@@ -520,24 +509,36 @@ public void viewOrder(int orderId) throws SQLException {
      * @return true if the product is successfully removed from the cart, false otherwise.
      * @throws ProductNotFoundException If the product is not found in the cart.
      */
-    @Override
-    public boolean removeFromCart(Customer customer, Product product) throws ProductNotFoundException {
+    public static void displayCart(int customerId) {
         try (Connection connection = DBConnUtil.getConnection();
              PreparedStatement statement = connection.prepareStatement(
-                     "DELETE FROM cart WHERE customer_id = ? AND product_id = ?")) {
-            statement.setInt(1, customer.getCustomerId());
-            statement.setInt(2, product.getProductId());
-            int rowsAffected = statement.executeUpdate();
-            if (rowsAffected > 0) {
-                return true;
-            } else {
-                throw new ProductNotFoundException("Product not found in the cart.");
+                     "SELECT product_id, quantity FROM cart WHERE customer_id = ?")) {
+            statement.setInt(1, customerId);
+            ResultSet resultSet = statement.executeQuery();
+            while (resultSet.next()) {
+                int productId = resultSet.getInt("product_id");
+                int quantity = resultSet.getInt("quantity");
+                System.out.println("Product ID: " + productId + ", Quantity: " + quantity);
             }
         } catch (SQLException e) {
             e.printStackTrace();
-            return false;
         }
     }
+	@Override
+	public boolean removeFromCart(Customer customer, Product product)
+	        throws CustomerNotFoundException, ProductNotFoundException {
+	    try (Connection connection = DBConnUtil.getConnection();
+	         PreparedStatement statement = connection.prepareStatement(
+	                 "DELETE FROM cart WHERE customer_id = ? AND product_id = ?")) {
+	        statement.setInt(1, customer.getCustomerId());
+	        statement.setInt(2, product.getProductId());
+	        int rowsAffected = statement.executeUpdate();
+	        return rowsAffected > 0;
+	    } catch (SQLException e) {
+	        e.printStackTrace();
+	        return false;
+	    }
+	    }
 
     /**
      * Retrieves the orders made by a specific customer.
@@ -769,6 +770,9 @@ public void viewOrder(int orderId) throws SQLException {
             return null;
         }
     }
+
+
+	
 
 	
 
